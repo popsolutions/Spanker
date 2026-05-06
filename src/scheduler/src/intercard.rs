@@ -65,6 +65,19 @@ pub struct Link {
     pub state: LinkState,
 }
 
+impl Link {
+    /// Construct a new `Link`.
+    ///
+    /// Required because `Link` is `#[non_exhaustive]`, which prevents
+    /// downstream crates from constructing it via struct-literal syntax.
+    /// All future fields added to `Link` should remain optional via
+    /// further `with_*` builder methods or by extending this constructor
+    /// signature with a new minor version bump.
+    pub fn new(local_sail: usize, remote_sail: usize, state: LinkState) -> Self {
+        Self { local_sail, remote_sail, state }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
