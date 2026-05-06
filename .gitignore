@@ -1,0 +1,12 @@
+target/
+build/
+*.o
+*.ko
+*.so
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+*.swp
+.vscode/
+.idea/

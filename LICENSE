@@ -1,0 +1,14 @@
+This repository's software contributions are licensed under the
+Apache License, Version 2.0:
+https://www.apache.org/licenses/LICENSE-2.0
+
+Kernel-space code that links to the Linux kernel headers may be
+licensed GPL-2.0-only as required by the Linux kernel licensing
+contract. Each kernel-space file's specific license is identified in
+its SPDX-License-Identifier header.
+
+Documentation is licensed under Creative Commons Attribution-ShareAlike
+4.0 International:
+https://creativecommons.org/licenses/by-sa/4.0/
+
+Copyright (c) 2026 PopSolutions Cooperative.
