@@ -39,7 +39,35 @@ pub use intercard::{Link, LinkState, INTERCARD_BUS_WIDTH, INTERCARD_LANES, INTER
 pub use topology::{MockSail, Topology};
 
 /// Errors returned by this crate.
+///
+/// Marked `#[non_exhaustive]` because library `Error` enums
+/// almost always grow new variants; downstream `match` arms
+/// must include a `_ =>` catch-all so we can extend without a
+/// major-version semver bump.
+///
+/// # Regression guard
+///
+/// The following doctest fails to compile *because* `Error` is
+/// `#[non_exhaustive]`: a downstream exhaustive `match` is
+/// rejected without a `_ =>` arm. If someone removes the
+/// `#[non_exhaustive]` attribute the doctest will start to
+/// compile, the `compile_fail` will fail, and CI will catch the
+/// silent semver-evolution regression.
+///
+/// ```compile_fail
+/// use spanker_scheduler::Error;
+/// fn classify(e: Error) -> &'static str {
+///     match e {
+///         Error::NoSails => "no sails",
+///         Error::TopologyMismatch { .. } => "topology",
+///         Error::ShapeMismatch { .. } => "shape",
+///         Error::NotImplemented(_) => "not impl",
+///         Error::Runtime(_) => "runtime",
+///     }
+/// }
+/// ```
 #[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum Error {
     /// `Topology::enumerate()` found no `/dev/spanker*` device
     /// nodes (typical cause: `spanker.ko` is not loaded, or the

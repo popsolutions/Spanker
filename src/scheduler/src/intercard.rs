@@ -25,7 +25,13 @@ pub const INTERCARD_BUS_WIDTH: usize = 128;
 
 /// State of a single inter-card link, mirroring `link_state_t`
 /// in MAST #14.
+///
+/// Marked `#[non_exhaustive]` because the inter-card protocol is
+/// still TBD per ADR-014; new states (e.g. `Quiesced`,
+/// `Recalibrating`) may land without a major-version semver bump.
+/// Downstream `match` arms must include a `_ =>` catch-all.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub enum LinkState {
     /// Link is down; no traffic.
     Down,
@@ -42,7 +48,14 @@ pub enum LinkState {
 /// `local_sail` and `remote_sail` are indices into
 /// [`crate::Topology::sails`]; the protocol that flows over the
 /// link is opaque to this crate and lands in ADR-014.
+///
+/// Marked `#[non_exhaustive]` because ADR-014 will add fields
+/// such as `bandwidth_gbps` and `latency_ns`; downstream crates
+/// must construct `Link` via a constructor (e.g. `Link::new`)
+/// rather than the struct literal so we can grow the struct
+/// without a major-version semver bump.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
 pub struct Link {
     /// Topology index of the originating sail.
     pub local_sail: usize,
