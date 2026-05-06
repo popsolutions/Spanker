@@ -57,7 +57,7 @@ Project constraints that bear on the decision:
 
 ## Decision
 
-**Rust** (edition 2024, MSRV `1.75.0`) for the userspace runtime, the
+**Rust** (edition 2024, MSRV `1.85.0`) for the userspace runtime, the
 GGML backend wrapper, and the distributed scheduler.
 
 The repository will be organised as a Cargo workspace whose members are:
@@ -74,7 +74,8 @@ with the driver through a stable ioctl ABI documented under
 `docs/api/` (versioned per ADR-003 — Public interface contracts; opened
 as a follow-up).
 
-`rust-toolchain.toml` will pin the MSRV; `Cargo.lock` will be checked in
+`rust-toolchain.toml` will pin the MSRV at `1.85.0` (the floor for
+edition 2024, stabilised in Rust 1.85 / 2025-02). `Cargo.lock` will be checked in
 for the runtime binary; library crates (`ggml-spanker`,
 `spanker-scheduler`) will not check in `Cargo.lock`, per current Cargo
 guidance.
