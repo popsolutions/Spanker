@@ -5,8 +5,13 @@
 //!
 //! Currently a stub returning [`crate::Error::NotImplemented`]
 //! because the kernel ABI does not yet expose a work-submission
-//! ioctl. Lands fully in PR #5b after ADR-003 pins the v1 ABI and
-//! the kernel module gains `SPANKER_IOC_WORK_SUBMIT`.
+//! ioctl. The real path lands once the kernel-driver PR adds
+//! `SPANKER_IOC_WORK_SUBMIT` to the UAPI header — that PR is
+//! itself gated on the DDR3 work-dispatch backend (cross-stream
+//! Spanker #9). Until then the bindgen-derived `crate::ffi`
+//! module exposes only PING + GET_VERSION; once WORK_SUBMIT
+//! lands in the header, bindgen picks it up automatically and
+//! the implementation below is fleshed out.
 
 use spanker_runtime::SpankerControl;
 
@@ -19,7 +24,8 @@ use crate::{Error, MatmulInt4, Result};
 /// control device with `SpankerControl::open()`.
 pub struct SailMatmul {
     // Held now so the public constructor signature is stable from
-    // PR #5 forward — PR #5b will start using it.
+    // PR #5 forward — the real implementation will start using it
+    // once SPANKER_IOC_WORK_SUBMIT exists.
     #[allow(dead_code)]
     ctl: SpankerControl,
 }
@@ -41,9 +47,60 @@ impl MatmulInt4 for SailMatmul {
         _k: usize,
         _n: usize,
     ) -> Result<()> {
-        // PR #5b will replace this with: dma writes for A/B, a
-        // SPANKER_IOC_WORK_SUBMIT ioctl carrying the matmul
-        // descriptor, and a dma read for OUT.
+        // The real-device path will eventually issue:
+        //   1. DMA writes of A and B into the device's DDR3 region,
+        //   2. a SPANKER_IOC_WORK_SUBMIT ioctl with a matmul
+        //      descriptor (m, k, n, A/B/OUT addrs),
+        //   3. a DMA read of OUT.
+        // Step 2's ABI is not yet defined (kernel UAPI header has
+        // only PING + GET_VERSION today). Returning a clearly
+        // labelled error keeps callers honest in the meantime.
         Err(Error::NotImplemented)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Pins the deferred-stub contract: `SailMatmul::matmul_q4_k`
+    /// MUST return [`Error::NotImplemented`] until the kernel
+    /// driver gains `SPANKER_IOC_WORK_SUBMIT` (cross-stream
+    /// Spanker #9). When that lands and this test fails, replace
+    /// it with the corresponding success-path assertions — do not
+    /// just delete it.
+    ///
+    /// Uses `/dev/null` for the underlying handle: it always
+    /// exists, opens read+write, and the test never reaches an
+    /// ioctl call (the stub short-circuits with `NotImplemented`
+    /// before any device traffic).
+    #[test]
+    fn matmul_q4_k_returns_not_implemented() {
+        // /dev/null may not be writable as a regular file in
+        // every sandbox. If we can't open it, skip — running this
+        // assertion is best-effort until a hermetic harness lands.
+        let Ok(ctl) = SpankerControl::open_path("/dev/null") else {
+            eprintln!("/dev/null unavailable for SailMatmul stub test; skipping");
+            return;
+        };
+        let sail = SailMatmul::new(ctl);
+        let err = sail
+            .matmul_q4_k(&[], &[], &mut [], 0, 0, 0)
+            .expect_err("SailMatmul must return NotImplemented today");
+        assert!(
+            matches!(err, Error::NotImplemented),
+            "expected NotImplemented, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn not_implemented_display_names_blocker_ioctl() {
+        // Callers grepping logs need to find the right cross-stream
+        // issue; the Display impl must mention SPANKER_IOC_WORK_SUBMIT.
+        let msg = format!("{}", Error::NotImplemented);
+        assert!(
+            msg.contains("SPANKER_IOC_WORK_SUBMIT"),
+            "NotImplemented Display should name the blocker ioctl: got {msg:?}"
+        );
     }
 }
