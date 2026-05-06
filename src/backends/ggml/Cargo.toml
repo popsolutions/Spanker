@@ -33,4 +33,12 @@ thiserror       = { workspace = true }
 # here yet because doing so would require cloning GGML's build
 # graph; the Q4_K layout is cross-checked separately in
 # `tests/q4_k_layout.rs` via a standalone C-side static_assert.
-bindgen = { version = "0.69", default-features = false, features = ["runtime"] }
+#
+# The `=0.69.5` exact-version pin is intentional: bindgen patch
+# releases have historically shifted the layout of generated
+# code (alignment of `#[repr(C)]` shims, derive ordering, etc.).
+# Pinning the patch keeps the binding output stable across CI
+# rebuilds and across developer machines without relying on a
+# committed Cargo.lock alone (Cargo.lock is the source of truth
+# for binaries; libraries pinning here is belt-and-suspenders).
+bindgen = { version = "=0.69.5", default-features = false, features = ["runtime"] }

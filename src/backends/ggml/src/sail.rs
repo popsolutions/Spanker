@@ -70,19 +70,32 @@ mod tests {
     /// it with the corresponding success-path assertions — do not
     /// just delete it.
     ///
-    /// Uses `/dev/null` for the underlying handle: it always
-    /// exists, opens read+write, and the test never reaches an
-    /// ioctl call (the stub short-circuits with `NotImplemented`
-    /// before any device traffic).
+    /// Uses a freshly-created temp file under `std::env::temp_dir()`
+    /// for the underlying handle. The stub short-circuits with
+    /// `NotImplemented` before issuing any ioctl, so the file's
+    /// type doesn't matter — only that `open(2)` succeeds.
+    /// Previous revisions used `/dev/null`, which is read-only in
+    /// some hermetic sandboxes and caused the test to silently
+    /// `return` (passing in CI summaries while never asserting
+    /// anything). A temp file removes that silent-skip path.
     #[test]
     fn matmul_q4_k_returns_not_implemented() {
-        // /dev/null may not be writable as a regular file in
-        // every sandbox. If we can't open it, skip — running this
-        // assertion is best-effort until a hermetic harness lands.
-        let Ok(ctl) = SpankerControl::open_path("/dev/null") else {
-            eprintln!("/dev/null unavailable for SailMatmul stub test; skipping");
-            return;
-        };
+        // Unique-per-process path so concurrent test runs don't
+        // collide. `cargo test` runs each integration binary in
+        // its own process, but unit tests inside one binary share
+        // a PID — `line!()` keeps this filename distinct from any
+        // sibling test that might adopt the same pattern later.
+        let tmp_path = std::env::temp_dir().join(format!(
+            "spanker-sail-stub-{}-{}.tmp",
+            std::process::id(),
+            line!()
+        ));
+        // `create` truncates if the file already exists from a
+        // previous run that was killed before cleanup ran.
+        std::fs::File::create(&tmp_path).expect("temp file should be creatable");
+
+        let ctl = SpankerControl::open_path(&tmp_path)
+            .expect("freshly-created temp file should open r+w");
         let sail = SailMatmul::new(ctl);
         let err = sail
             .matmul_q4_k(&[], &[], &mut [], 0, 0, 0)
@@ -91,6 +104,10 @@ mod tests {
             matches!(err, Error::NotImplemented),
             "expected NotImplemented, got {err:?}"
         );
+
+        // Best-effort cleanup; a leaked file in /tmp is harmless
+        // but tidiness is cheap.
+        let _ = std::fs::remove_file(&tmp_path);
     }
 
     #[test]

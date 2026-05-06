@@ -9,15 +9,31 @@
 //! `axi4_mem_model` cocotb harness; until that lands the mock is
 //! the source of truth for transaction shape.
 
-use ggml_spanker::{Error, MatmulInt4, MockSail, Transaction, Q4_K_BLOCK_BYTES, QK_K};
-
-const OUTPUT_ELEM_BYTES: usize = 4; // f32 dequant on the device side
+use ggml_spanker::{
+    Error, MatmulInt4, MockSail, Transaction, OUTPUT_ELEM_BYTES, Q4_K_BLOCK_BYTES, QK_K,
+};
 
 fn alloc_operands(m: usize, k: usize, n: usize) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+    // `checked_mul` mirrors the production helpers
+    // (`expected_a_bytes`, `expected_b_bytes`, `expected_out_bytes`)
+    // so a future contributor copying this allocator inherits the
+    // overflow-safe idiom rather than the bare `*` shortcut.
     let blocks = k / QK_K;
-    let a = vec![0u8; m * blocks * Q4_K_BLOCK_BYTES];
-    let b = vec![0u8; n * blocks * Q4_K_BLOCK_BYTES];
-    let out = vec![0u8; m * n * OUTPUT_ELEM_BYTES];
+    let a_len = m
+        .checked_mul(blocks)
+        .and_then(|v| v.checked_mul(Q4_K_BLOCK_BYTES))
+        .expect("A bytes overflow usize");
+    let b_len = n
+        .checked_mul(blocks)
+        .and_then(|v| v.checked_mul(Q4_K_BLOCK_BYTES))
+        .expect("B bytes overflow usize");
+    let out_len = m
+        .checked_mul(n)
+        .and_then(|v| v.checked_mul(OUTPUT_ELEM_BYTES))
+        .expect("OUT bytes overflow usize");
+    let a = vec![0u8; a_len];
+    let b = vec![0u8; b_len];
+    let out = vec![0u8; out_len];
     (a, b, out)
 }
 
