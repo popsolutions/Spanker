@@ -46,11 +46,13 @@
 
 pub mod bandwidth;
 pub mod collective;
+pub mod decision;
 pub mod intercard;
 pub mod topology;
 
 pub use bandwidth::{INTERCARD_BW_BYTES_PER_SEC, LOCAL_DDR_BW_BYTES_PER_SEC};
 pub use collective::{AllGather, AllReduce, ModelParallel, ReduceOp, TensorParallel};
+pub use decision::{pick_strategy, Strategy, TileShape};
 pub use intercard::{Link, LinkState, INTERCARD_BUS_WIDTH, INTERCARD_LANES, INTERCARD_LANE_WIDTH};
 pub use topology::{MockSail, Topology};
 
