@@ -10,7 +10,10 @@
 
 [workspace]
 resolver = "2"
-members  = ["src/runtime"]
+members  = [
+    "src/runtime",
+    "src/backends/ggml",
+]
 
 [workspace.package]
 edition      = "2021"
