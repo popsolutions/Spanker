@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 PopSolutions Cooperative
+
+[package]
+name        = "spanker-scheduler"
+version     = "0.1.0"
+description = "Distributed scheduler for the PopSolutions Sails — multi-card topology, collective ops."
+keywords    = ["scheduler", "distributed", "popsolutions", "fpga", "collective"]
+categories  = ["hardware-support", "concurrency"]
+
+edition.workspace      = true
+license.workspace      = true
+authors.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
+
+[lib]
+name = "spanker_scheduler"
+path = "src/lib.rs"
+
+[dependencies]
+spanker-runtime = { path = "../runtime" }
+thiserror       = { workspace = true }

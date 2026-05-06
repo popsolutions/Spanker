@@ -10,7 +10,10 @@
 
 [workspace]
 resolver = "2"
-members  = ["src/runtime"]
+members  = [
+    "src/runtime",
+    "src/scheduler",
+]
 
 [workspace.package]
 edition      = "2021"
