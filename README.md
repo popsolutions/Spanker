@@ -47,7 +47,7 @@ Spanker/
 ├── CONTRIBUTING.md
 ├── src/
 │   ├── driver/        (Linux kernel module — C)
-│   ├── runtime/       (userspace orchestrator — Rust or C++; ADR-001 decides)
+│   ├── runtime/       (userspace orchestrator — Rust; per ADR-001)
 │   └── backends/
 │       └── ggml/      (GGML kernel ports for Sails)
 ├── tests/             (pytest harness; integration tests against MAST cocotb sim)
