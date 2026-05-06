@@ -84,7 +84,7 @@ impl Topology<MockSail> {
         // n*(n-1) directed edges in a fully-meshed graph
         // (each of n nodes has a directed link to each of the
         // n-1 other nodes).
-        let mut links = Vec::with_capacity(n_sails.saturating_sub(1) * n_sails);
+        let mut links = Vec::with_capacity(n_sails * n_sails.saturating_sub(1));
         for local in 0..n_sails {
             for remote in 0..n_sails {
                 if local == remote {
