@@ -30,15 +30,23 @@
 //!   [`bandwidth`] module. These supersede the stale ADR-001
 //!   "DDR3-1600 = 12.8 GB/s" number with realistic
 //!   ECP5+open-toolchain ceilings (cross-stream MAST #32, this
-//!   crate's issue #14).
+//!   crate's issues #14 and #21). Three tiers are modelled:
+//!   local DDR > inter-card > host-link.
 //!
 //! ## Bandwidth-model usage
 //!
 //! ```
-//! use spanker_scheduler::{LOCAL_DDR_BW_BYTES_PER_SEC, INTERCARD_BW_BYTES_PER_SEC};
-//! // Local DDR is the higher-throughput resource per card; the
-//! // TP-vs-MP decision logic relies on this comparison.
+//! use spanker_scheduler::{
+//!     LOCAL_DDR_BW_BYTES_PER_SEC,
+//!     INTERCARD_BW_BYTES_PER_SEC,
+//!     HOST_LINK_BW_BYTES_PER_SEC,
+//! };
+//! // Three-tier hierarchy: local DDR > inter-card > host link.
+//! // The TP-vs-MP per-token decision logic relies on the first
+//! // inequality; session-level cost-budget logic relies on the
+//! // second to recognise the host link as the slowest hop.
 //! assert!(LOCAL_DDR_BW_BYTES_PER_SEC > INTERCARD_BW_BYTES_PER_SEC);
+//! assert!(INTERCARD_BW_BYTES_PER_SEC > HOST_LINK_BW_BYTES_PER_SEC);
 //! ```
 
 #![warn(missing_docs)]
@@ -50,7 +58,9 @@ pub mod decision;
 pub mod intercard;
 pub mod topology;
 
-pub use bandwidth::{INTERCARD_BW_BYTES_PER_SEC, LOCAL_DDR_BW_BYTES_PER_SEC};
+pub use bandwidth::{
+    HOST_LINK_BW_BYTES_PER_SEC, INTERCARD_BW_BYTES_PER_SEC, LOCAL_DDR_BW_BYTES_PER_SEC,
+};
 pub use collective::{AllGather, AllReduce, ModelParallel, ReduceOp, TensorParallel};
 pub use decision::{pick_strategy, Strategy, TileShape};
 pub use intercard::{Link, LinkState, INTERCARD_BUS_WIDTH, INTERCARD_LANES, INTERCARD_LANE_WIDTH};
