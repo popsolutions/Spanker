@@ -21,3 +21,24 @@ jobs:
             [ -f "$f" ] || continue
             grep -q "SPDX-License-Identifier" "$f" || { echo "$f missing SPDX header" ; exit 1; }
           done
+
+  driver-build:
+    name: Driver / kbuild
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install kernel headers and build tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            linux-headers-$(uname -r) build-essential
+      - name: Build spanker.ko (out-of-tree)
+        run: make -C src/driver
+      - name: Verify module metadata
+        run: |
+          modinfo src/driver/spanker.ko \
+            | grep -E '^(license|description|version|alias):'
+          # Sanity: license must be GPL per ADR-002.
+          modinfo src/driver/spanker.ko | grep -q '^license:.*GPL'
+      - name: Clean
+        run: make -C src/driver clean
