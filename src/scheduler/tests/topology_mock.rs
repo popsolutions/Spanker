@@ -11,8 +11,8 @@
 //! against MAST filed alongside this PR.
 
 use spanker_scheduler::{
-    AllGather, AllReduce, MockSail, ReduceOp, Topology, INTERCARD_BUS_WIDTH, INTERCARD_LANES,
-    INTERCARD_LANE_WIDTH,
+    AllGather, AllReduce, Error, MockSail, ReduceOp, Topology, INTERCARD_BUS_WIDTH,
+    INTERCARD_LANES, INTERCARD_LANE_WIDTH,
 };
 
 #[test]
@@ -89,6 +89,39 @@ fn all_gather_four_cards_concatenates_in_order() {
     ];
     let gathered = t.all_gather_f32(&per_card).expect("AllGather on 4 cards");
     assert_eq!(gathered, vec![1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]);
+}
+
+#[test]
+fn all_gather_topology_mismatch() {
+    let t = Topology::<MockSail>::with_mock(2);
+    let per_card = vec![vec![1.0f32, 2.0], vec![3.0, 4.0], vec![5.0, 6.0]];
+    let err = t
+        .all_gather_f32(&per_card)
+        .expect_err("expected TopologyMismatch");
+    assert!(matches!(
+        err,
+        Error::TopologyMismatch {
+            expected: 2,
+            actual: 3
+        }
+    ));
+}
+
+#[test]
+fn all_gather_shape_mismatch() {
+    let t = Topology::<MockSail>::with_mock(2);
+    let per_card = vec![vec![1.0f32, 2.0], vec![3.0]];
+    let err = t
+        .all_gather_f32(&per_card)
+        .expect_err("expected ShapeMismatch");
+    assert!(matches!(
+        err,
+        Error::ShapeMismatch {
+            sail: 1,
+            expected: 2,
+            actual: 1
+        }
+    ));
 }
 
 #[test]
