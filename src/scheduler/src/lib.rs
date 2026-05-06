@@ -26,14 +26,30 @@
 //!   MAST filed alongside this PR).
 //! - Inter-card constants imported from MAST #14: see
 //!   [`intercard`] module.
+//! - Bandwidth-model constants for rev-A capacity planning: see
+//!   [`bandwidth`] module. These supersede the stale ADR-001
+//!   "DDR3-1600 = 12.8 GB/s" number with realistic
+//!   ECP5+open-toolchain ceilings (cross-stream MAST #32, this
+//!   crate's issue #14).
+//!
+//! ## Bandwidth-model usage
+//!
+//! ```
+//! use spanker_scheduler::{LOCAL_DDR_BW_BYTES_PER_SEC, INTERCARD_BW_BYTES_PER_SEC};
+//! // Local DDR is the higher-throughput resource per card; the
+//! // TP-vs-MP decision logic relies on this comparison.
+//! assert!(LOCAL_DDR_BW_BYTES_PER_SEC > INTERCARD_BW_BYTES_PER_SEC);
+//! ```
 
 #![warn(missing_docs)]
 #![deny(unsafe_op_in_unsafe_fn)]
 
+pub mod bandwidth;
 pub mod collective;
 pub mod intercard;
 pub mod topology;
 
+pub use bandwidth::{INTERCARD_BW_BYTES_PER_SEC, LOCAL_DDR_BW_BYTES_PER_SEC};
 pub use collective::{AllGather, AllReduce, ModelParallel, ReduceOp, TensorParallel};
 pub use intercard::{Link, LinkState, INTERCARD_BUS_WIDTH, INTERCARD_LANES, INTERCARD_LANE_WIDTH};
 pub use topology::{MockSail, Topology};
