@@ -48,6 +48,18 @@ fn main() {
         .derive_default(true)
         .derive_debug(true)
         .derive_copy(true)
+        // Suppress bindgen's compile-time size/align assertions.
+        // Enabling them would require the test runner to link
+        // against libclang at `cargo test` time (the generated
+        // assertions reference C-side `sizeof`/`alignof` values),
+        // which is heavier than this crate's UAPI surface
+        // justifies. The cross-mirror test
+        // `bindgen_uapi_constants_match_runtime_mirror` in
+        // `src/lib.rs` covers `size_of::<ffi::spanker_version>()`
+        // (the only struct currently bound) at unit-test time
+        // instead. If WORK_SUBMIT or another non-trivial struct
+        // is later added to the UAPI header, revisit this and
+        // either flip layout_tests back on or extend the mirror.
         .layout_tests(false)
         .generate()
         .expect("bindgen failed to generate spanker UAPI bindings");

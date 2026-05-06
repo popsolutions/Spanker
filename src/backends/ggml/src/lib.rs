@@ -73,7 +73,11 @@ pub const Q4_K_BLOCK_BYTES: usize = 144;
 /// Bytes per element in the f32-shaped output the device returns
 /// for a Q4_K matmul. The device dequantizes on the way out, so
 /// `out` is `m × n` f32 values regardless of the input encoding.
-pub(crate) const OUTPUT_ELEM_BYTES: usize = 4;
+///
+/// Public so integration tests under `tests/` can compute the same
+/// expected output-buffer size the production helpers use, without
+/// re-declaring a local `const = 4` that could silently drift.
+pub const OUTPUT_ELEM_BYTES: usize = 4;
 
 /// Errors returned by this crate.
 ///
