@@ -1,0 +1,82 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright (c) 2026 PopSolutions Cooperative
+
+//! # spanker-scheduler — distributed scheduler for the PopSolutions Sails
+//!
+//! Per `project_multicard_parallelism.md` (multi-card parallelism is
+//! a first-class architectural requirement) and the cross-stream
+//! contract with `popsolutions/MAST` (intercard skeleton, MAST #14)
+//! and `popsolutions/Stays` (PCB connector pinout).
+//!
+//! ## What this crate exposes
+//!
+//! - [`Topology`]: opaque handle over the connected Sails plus
+//!   their inter-card link graph. Generic over the per-sail
+//!   handle type so unit tests can drive a [`MockSail`] vector
+//!   without `/dev/spanker*` present.
+//! - [`AllReduce`], [`AllGather`]: collective-ops trait surfaces
+//!   for the multi-card data path. Implemented host-side on
+//!   [`Topology<MockSail>`] for now (real implementations land
+//!   when the kernel ABI gains work-submission ioctls and the
+//!   inter-card link protocol is specified per ADR-014).
+//! - [`TensorParallel`], [`ModelParallel`]: marker / shape traits
+//!   the runtime consumes when partitioning workloads. Bodies
+//!   land alongside real-device matmul (PR #5b) and inter-card
+//!   link bandwidth characterisation (cross-stream issue against
+//!   MAST filed alongside this PR).
+//! - Inter-card constants imported from MAST #14: see
+//!   [`intercard`] module.
+
+#![warn(missing_docs)]
+#![deny(unsafe_op_in_unsafe_fn)]
+
+pub mod collective;
+pub mod intercard;
+pub mod topology;
+
+pub use collective::{AllGather, AllReduce, ModelParallel, ReduceOp, TensorParallel};
+pub use intercard::{Link, LinkState, INTERCARD_BUS_WIDTH, INTERCARD_LANES, INTERCARD_LANE_WIDTH};
+pub use topology::{MockSail, Topology};
+
+/// Errors returned by this crate.
+#[derive(Debug, thiserror::Error)]
+pub enum Error {
+    /// `Topology::enumerate()` found no `/dev/spanker*` device
+    /// nodes (typical cause: `spanker.ko` is not loaded, or the
+    /// driver's PCIe probe path has not yet been wired up to
+    /// create per-Sail nodes).
+    #[error("no Sails enumerated; spanker.ko may not be loaded or no devices probed yet")]
+    NoSails,
+
+    /// Per-card buffer count differs from the topology size.
+    #[error("topology mismatch: expected {expected} sails, got {actual}")]
+    TopologyMismatch {
+        /// Number of sails the topology was built with.
+        expected: usize,
+        /// Number of per-card buffers the caller passed.
+        actual: usize,
+    },
+
+    /// Per-card buffers have inconsistent shapes (collective ops
+    /// require uniform shape across cards).
+    #[error("buffer shape mismatch on sail {sail}: expected {expected} elems, got {actual}")]
+    ShapeMismatch {
+        /// Which sail's buffer disagrees.
+        sail: usize,
+        /// Shape of sail 0's buffer (the reference).
+        expected: usize,
+        /// Shape of the offending buffer.
+        actual: usize,
+    },
+
+    /// Real-device collective op is not yet wired up.
+    #[error("not implemented yet: {0}")]
+    NotImplemented(&'static str),
+
+    /// Underlying runtime error (open, ioctl).
+    #[error(transparent)]
+    Runtime(#[from] spanker_runtime::Error),
+}
+
+/// Convenience alias for results returned by this crate.
+pub type Result<T> = std::result::Result<T, Error>;
