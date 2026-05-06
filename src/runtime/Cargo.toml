@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 PopSolutions Cooperative
+
+[package]
+name        = "spanker-runtime"
+version     = "0.1.0"
+description = "Userspace runtime for the PopSolutions Spanker accelerator driver."
+keywords    = ["accelerator", "ioctl", "popsolutions", "fpga"]
+categories  = ["hardware-support", "os::linux-apis"]
+
+edition.workspace      = true
+license.workspace      = true
+authors.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
+
+[lib]
+name = "spanker_runtime"
+path = "src/lib.rs"
+
+[dependencies]
+nix       = { workspace = true }
+thiserror = { workspace = true }

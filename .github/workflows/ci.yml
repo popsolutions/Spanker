@@ -21,3 +21,22 @@ jobs:
             [ -f "$f" ] || continue
             grep -q "SPDX-License-Identifier" "$f" || { echo "$f missing SPDX header" ; exit 1; }
           done
+
+  runtime-build:
+    name: Runtime / cargo
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Rust toolchain (MSRV per ADR-001)
+        uses: dtolnay/rust-toolchain@1.75.0
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+      - name: Build workspace
+        run: cargo build --workspace --all-targets
+      - name: Test workspace
+        run: cargo test --workspace --all-targets
+      - name: Clippy
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+      - name: Rustfmt
+        run: cargo fmt --check --all

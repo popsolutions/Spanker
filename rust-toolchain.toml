@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 PopSolutions Cooperative
+#
+# Pins the Rust toolchain for the Spanker workspace.
+# Per ADR-001 — Userspace runtime language (Rust, MSRV 1.75.0).
+
+[toolchain]
+channel    = "1.75.0"
+components = ["clippy", "rustfmt"]
+profile    = "minimal"
