@@ -1,0 +1,5 @@
+[submodule "external/ggml"]
+	path    = external/ggml
+	url     = https://github.com/ggml-org/ggml.git
+	shallow = true
+	branch  = master

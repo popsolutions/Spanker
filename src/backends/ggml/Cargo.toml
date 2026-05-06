@@ -1,0 +1,32 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 PopSolutions Cooperative
+
+[package]
+name        = "ggml-spanker"
+version     = "0.1.0"
+description = "GGML int4 matmul backend for the PopSolutions Sails."
+keywords    = ["ggml", "matmul", "popsolutions", "fpga"]
+categories  = ["hardware-support", "science"]
+
+edition.workspace      = true
+license.workspace      = true
+authors.workspace      = true
+repository.workspace   = true
+rust-version.workspace = true
+
+[lib]
+name = "ggml_spanker"
+path = "src/lib.rs"
+
+[dependencies]
+spanker-runtime = { path = "../../runtime" }
+thiserror       = { workspace = true }
+
+# NOTE on bindgen — the upstream GGML submodule under
+# external/ggml/ is pinned by this PR so that PR #5b can wire
+# bindgen + a build.rs over `wrapper.h` once SailMatmul gains a
+# real-device path. Bindgen itself is deferred from this PR
+# because its transitive deps (home → rustc-hash) require Rust
+# >= 1.81, conflicting with ADR-001's 1.75 MSRV. Resolution path:
+# (a) wait for bindgen / home to publish back-compat releases, or
+# (b) the ADR-001 amendment revisits MSRV in light of FFI needs.
