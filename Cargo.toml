@@ -13,6 +13,7 @@ resolver = "2"
 members  = [
     "src/runtime",
     "src/backends/ggml",
+    "src/scheduler",
 ]
 
 [workspace.package]
