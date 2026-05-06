@@ -10,3 +10,13 @@ __pycache__/
 *.swp
 .vscode/
 .idea/
+
+# kbuild out-of-tree module artefacts (per ADR-002)
+*.mod
+*.mod.c
+*.cmd
+.*.cmd
+Module.symvers
+modules.order
+*.symvers
+.tmp_versions/

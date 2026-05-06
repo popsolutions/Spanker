@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: GPL-2.0-only
+# Copyright (c) 2026 PopSolutions Cooperative
+#
+# Kbuild for the Spanker accelerator driver (out-of-tree module).
+# Per ADR-002 — Linux driver model.
+
+obj-m += spanker.o
+
+spanker-y := \
+	spanker_main.o \
+	spanker_ioctl.o
+
+ccflags-y += -I$(src)/include
