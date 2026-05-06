@@ -1,0 +1,29 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2026 PopSolutions Cooperative
+#
+# Spanker workspace root.
+#
+# Per ADR-001 — Userspace runtime language (Rust). The workspace
+# starts with `spanker-runtime` (this PR); subsequent PRs add
+# `spanker-scheduler` (PR #4 distributed scheduler) and
+# `ggml-spanker` (PR #3 GGML backend wrapper).
+
+[workspace]
+resolver = "2"
+members  = ["src/runtime"]
+
+[workspace.package]
+edition      = "2021"
+license      = "Apache-2.0"
+authors      = ["PopSolutions Cooperative <popsolutions.co@gmail.com>"]
+repository   = "https://github.com/popsolutions/Spanker"
+rust-version = "1.75"
+
+[workspace.dependencies]
+nix       = { version = "0.29", default-features = false, features = ["ioctl"] }
+thiserror = "2.0"
+
+[profile.release]
+lto           = "thin"
+codegen-units = 1
+strip         = "debuginfo"
