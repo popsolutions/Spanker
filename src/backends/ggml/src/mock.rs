@@ -11,7 +11,9 @@
 
 use std::sync::Mutex;
 
-use crate::{Error, MatmulInt4, Result, QK_K};
+use crate::{
+    expected_a_bytes, expected_b_bytes, expected_out_bytes, Error, MatmulInt4, Result, QK_K,
+};
 
 /// One AXI4 transaction recorded by [`MockSail`].
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -98,8 +100,34 @@ impl MatmulInt4 for MockSail {
         k: usize,
         n: usize,
     ) -> Result<()> {
+        // Reject unaligned/zero k up front — the helpers return
+        // None for these too, but a dedicated branch gives a
+        // clearer error path.
         if k == 0 || k % QK_K != 0 {
             return Err(Error::BadDims { m, k, n, qk: QK_K });
+        }
+
+        // Cross-check operand slice lengths against the declared
+        // `m × k × n` shape under Q4_K. m=0 or n=0 are accepted
+        // as explicit no-ops (consistent with NumPy's empty-tensor
+        // semantics); the helpers correctly return Some(0) there.
+        let need_a = expected_a_bytes(m, k).ok_or(Error::BadDims { m, k, n, qk: QK_K })?;
+        let need_b = expected_b_bytes(k, n).ok_or(Error::BadDims { m, k, n, qk: QK_K })?;
+        let need_out = expected_out_bytes(m, n).ok_or(Error::BadDims { m, k, n, qk: QK_K })?;
+
+        if a.len() != need_a || b.len() != need_b {
+            return Err(Error::BadDims { m, k, n, qk: QK_K });
+        }
+        if out.len() < need_out {
+            return Err(Error::OutputTooSmall {
+                have: out.len(),
+                need: need_out,
+            });
+        }
+
+        // m=0 / n=0 with valid k is a no-op: no traffic needed.
+        if m == 0 || n == 0 {
+            return Ok(());
         }
 
         self.push(Transaction::Write {
@@ -132,13 +160,27 @@ impl MatmulInt4 for MockSail {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Q4_K_BLOCK_BYTES;
+
+    /// Build correctly-sized (m, k, n) operand buffers for tests.
+    fn alloc_operands(m: usize, k: usize, n: usize) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+        let blocks = k / QK_K;
+        let a = vec![0u8; m * blocks * Q4_K_BLOCK_BYTES];
+        let b = vec![0u8; n * blocks * Q4_K_BLOCK_BYTES];
+        let out = vec![0u8; m * n * crate::OUTPUT_ELEM_BYTES];
+        (a, b, out)
+    }
 
     #[test]
     fn mock_records_four_transactions_in_order() {
+        let m = 4;
+        let k = QK_K;
+        let n = 4;
+        let (a, b, mut out) = alloc_operands(m, k, n);
+
         let mock = MockSail::new();
-        let mut out = [0u8; 64];
-        mock.matmul_q4_k(&[0u8; 32], &[0u8; 64], &mut out, 4, QK_K, 4)
-            .expect("mock matmul should succeed on aligned k");
+        mock.matmul_q4_k(&a, &b, &mut out, m, k, n)
+            .expect("mock matmul should succeed on aligned k with consistent slice lens");
 
         let txns = mock.transactions();
         assert_eq!(txns.len(), 4);
@@ -162,5 +204,65 @@ mod tests {
             .matmul_q4_k(&[], &[], &mut out, 1, 100, 1)
             .expect_err("expected BadDims");
         assert!(matches!(err, Error::BadDims { qk: QK_K, .. }));
+    }
+
+    #[test]
+    fn mock_rejects_undersized_a_slice() {
+        let mock = MockSail::new();
+        let (mut a, b, mut out) = alloc_operands(4, QK_K, 4);
+        a.pop(); // make A one byte short of the declared m × k shape.
+        let err = mock
+            .matmul_q4_k(&a, &b, &mut out, 4, QK_K, 4)
+            .expect_err("expected BadDims for short A");
+        assert!(matches!(err, Error::BadDims { qk: QK_K, .. }));
+    }
+
+    #[test]
+    fn mock_rejects_undersized_b_slice() {
+        let mock = MockSail::new();
+        let (a, mut b, mut out) = alloc_operands(4, QK_K, 4);
+        b.pop(); // make B one byte short of the declared k × n shape.
+        let err = mock
+            .matmul_q4_k(&a, &b, &mut out, 4, QK_K, 4)
+            .expect_err("expected BadDims for short B");
+        assert!(matches!(err, Error::BadDims { qk: QK_K, .. }));
+    }
+
+    #[test]
+    fn mock_returns_output_too_small_when_out_undersized() {
+        let mock = MockSail::new();
+        let (a, b, _) = alloc_operands(4, QK_K, 4);
+        let mut out = vec![0u8; 4]; // way short of m*n*4 = 64
+        let err = mock
+            .matmul_q4_k(&a, &b, &mut out, 4, QK_K, 4)
+            .expect_err("expected OutputTooSmall");
+        match err {
+            Error::OutputTooSmall { have, need } => {
+                assert_eq!(have, 4);
+                assert_eq!(need, 4 * 4 * crate::OUTPUT_ELEM_BYTES);
+            }
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[test]
+    fn mock_accepts_m_zero_as_noop() {
+        let mock = MockSail::new();
+        let (a, b, mut out) = alloc_operands(0, QK_K, 4);
+        mock.matmul_q4_k(&a, &b, &mut out, 0, QK_K, 4)
+            .expect("m=0 with valid k is a no-op");
+        assert!(
+            mock.transactions().is_empty(),
+            "no AXI4 traffic should be issued for an empty matmul"
+        );
+    }
+
+    #[test]
+    fn mock_accepts_n_zero_as_noop() {
+        let mock = MockSail::new();
+        let (a, b, mut out) = alloc_operands(4, QK_K, 0);
+        mock.matmul_q4_k(&a, &b, &mut out, 4, QK_K, 0)
+            .expect("n=0 with valid k is a no-op");
+        assert!(mock.transactions().is_empty());
     }
 }

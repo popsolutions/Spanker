@@ -11,17 +11,23 @@
 
 use ggml_spanker::{Error, MatmulInt4, MockSail, Transaction, Q4_K_BLOCK_BYTES, QK_K};
 
+const OUTPUT_ELEM_BYTES: usize = 4; // f32 dequant on the device side
+
+fn alloc_operands(m: usize, k: usize, n: usize) -> (Vec<u8>, Vec<u8>, Vec<u8>) {
+    let blocks = k / QK_K;
+    let a = vec![0u8; m * blocks * Q4_K_BLOCK_BYTES];
+    let b = vec![0u8; n * blocks * Q4_K_BLOCK_BYTES];
+    let out = vec![0u8; m * n * OUTPUT_ELEM_BYTES];
+    (a, b, out)
+}
+
 #[test]
 fn q4_k_matmul_issues_four_axi4_phases_in_order() {
     let m = 4;
     let k = QK_K; // exactly one Q4_K block per row of A
     let n = 4;
 
-    // Q4_K input layout (skeleton-grade): m × (k / QK_K) blocks of
-    // Q4_K_BLOCK_BYTES each. Real layouts will be honed in PR #5b.
-    let a = vec![0u8; m * (k / QK_K) * Q4_K_BLOCK_BYTES];
-    let b = vec![0u8; n * (k / QK_K) * Q4_K_BLOCK_BYTES];
-    let mut out = vec![0u8; m * n * 4];
+    let (a, b, mut out) = alloc_operands(m, k, n);
 
     let mock = MockSail::new();
     mock.matmul_q4_k(&a, &b, &mut out, m, k, n)
@@ -76,4 +82,44 @@ fn matmul_rejects_unaligned_k_dimension() {
         .matmul_q4_k(&[], &[], &mut out, 1, 100, 1)
         .expect_err("expected BadDims");
     assert!(matches!(err, Error::BadDims { qk, .. } if qk == QK_K));
+}
+
+#[test]
+fn matmul_rejects_mismatched_a_slice_length() {
+    let mock = MockSail::new();
+    let (a, b, mut out) = alloc_operands(4, QK_K, 4);
+    let short_a = &a[..a.len() - 1];
+    let err = mock
+        .matmul_q4_k(short_a, &b, &mut out, 4, QK_K, 4)
+        .expect_err("undersized A must trigger BadDims");
+    assert!(matches!(err, Error::BadDims { qk, .. } if qk == QK_K));
+}
+
+#[test]
+fn matmul_returns_output_too_small_when_out_undersized() {
+    let mock = MockSail::new();
+    let (a, b, _) = alloc_operands(4, QK_K, 4);
+    let mut undersized = vec![0u8; 4]; // need 4*4*4 = 64
+    let err = mock
+        .matmul_q4_k(&a, &b, &mut undersized, 4, QK_K, 4)
+        .expect_err("OutputTooSmall expected");
+    match err {
+        Error::OutputTooSmall { have, need } => {
+            assert_eq!(have, 4);
+            assert_eq!(need, 4 * 4 * OUTPUT_ELEM_BYTES);
+        }
+        other => panic!("unexpected error: {other:?}"),
+    }
+}
+
+#[test]
+fn matmul_accepts_m_zero_as_noop() {
+    let mock = MockSail::new();
+    let (a, b, mut out) = alloc_operands(0, QK_K, 4);
+    mock.matmul_q4_k(&a, &b, &mut out, 0, QK_K, 4)
+        .expect("m=0 is a documented no-op");
+    assert!(
+        mock.transactions().is_empty(),
+        "no AXI4 traffic for an empty matmul"
+    );
 }

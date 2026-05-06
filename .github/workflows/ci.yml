@@ -48,6 +48,16 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          # ggml-spanker's build.rs runs bindgen over the in-tree
+          # spanker UAPI header. The GGML submodule itself is also
+          # pinned for forthcoming Q4_K layout cross-checks, so
+          # initialise submodules recursively.
+          submodules: recursive
+      - name: Install libclang for bindgen
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends libclang-dev
       - name: Install Rust toolchain (MSRV per ADR-001)
         uses: dtolnay/rust-toolchain@1.75.0
         with:

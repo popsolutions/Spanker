@@ -2,4 +2,6 @@
 	path    = external/ggml
 	url     = https://github.com/ggml-org/ggml.git
 	shallow = true
-	branch  = master
+	# Reproducibility anchor is the committed SHA — no `branch =`
+	# tracking, since `--remote` updates would undermine that anchor.
+	# When the upstream pin needs to move, bump the commit explicitly.

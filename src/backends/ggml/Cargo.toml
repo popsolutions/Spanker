@@ -7,6 +7,7 @@ version     = "0.1.0"
 description = "GGML int4 matmul backend for the PopSolutions Sails."
 keywords    = ["ggml", "matmul", "popsolutions", "fpga"]
 categories  = ["hardware-support", "science"]
+build       = "build.rs"
 
 edition.workspace      = true
 license.workspace      = true
@@ -22,11 +23,14 @@ path = "src/lib.rs"
 spanker-runtime = { path = "../../runtime" }
 thiserror       = { workspace = true }
 
-# NOTE on bindgen — the upstream GGML submodule under
-# external/ggml/ is pinned by this PR so that PR #5b can wire
-# bindgen + a build.rs over `wrapper.h` once SailMatmul gains a
-# real-device path. Bindgen itself is deferred from this PR
-# because its transitive deps (home → rustc-hash) require Rust
-# >= 1.81, conflicting with ADR-001's 1.75 MSRV. Resolution path:
-# (a) wait for bindgen / home to publish back-compat releases, or
-# (b) the ADR-001 amendment revisits MSRV in light of FFI needs.
+[build-dependencies]
+# bindgen 0.69 is the last release line that resolves cleanly
+# under ADR-001's MSRV 1.75; newer bindgens drag in transitive
+# crates (home / rustc-hash) that require Rust >= 1.81. The
+# build.rs binds the spanker UAPI header (PING + GET_VERSION
+# today; WORK_SUBMIT lands when the kernel driver gains it under
+# Spanker #9 / DDR3 stream). Upstream GGML headers are NOT bound
+# here yet because doing so would require cloning GGML's build
+# graph; the Q4_K layout is cross-checked separately in
+# `tests/q4_k_layout.rs` via a standalone C-side static_assert.
+bindgen = { version = "0.69", default-features = false, features = ["runtime"] }
