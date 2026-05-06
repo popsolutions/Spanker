@@ -74,7 +74,11 @@ impl Link {
     /// further `with_*` builder methods or by extending this constructor
     /// signature with a new minor version bump.
     pub fn new(local_sail: usize, remote_sail: usize, state: LinkState) -> Self {
-        Self { local_sail, remote_sail, state }
+        Self {
+            local_sail,
+            remote_sail,
+            state,
+        }
     }
 }
 
